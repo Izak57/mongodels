@@ -380,21 +380,36 @@ class DBCursor(Generic[CursorT]):
             return None
         return self._deserialize(document)
 
-    def limit(self, n: int) -> Self:
-        self.cursor = self.cursor.limit(n)
+    def _apply_cursor_method(
+        self,
+        method_name: str,
+        *args: Any,
+    ) -> Self:
+        method = getattr(self.cursor, method_name, None)
+        if method is None:
+            raise TypeError(
+                f"{type(self.cursor).__name__} does not support "
+                f"{method_name}()."
+            )
+
+        updated_cursor = method(*args)
+        if updated_cursor is not None:
+            self.cursor = updated_cursor
         return self
+
+    def limit(self, n: int) -> Self:
+        return self._apply_cursor_method("limit", n)
 
     def skip(self, n: int) -> Self:
-        self.cursor = self.cursor.skip(n)
-        return self
+        return self._apply_cursor_method("skip", n)
 
     def sort(self, key: Any, direction: Any = None) -> Self:
-        self.cursor = self.cursor.sort(key, direction)
-        return self
+        if direction is None:
+            return self._apply_cursor_method("sort", key)
+        return self._apply_cursor_method("sort", key, direction)
 
     def batch_size(self, size: int) -> Self:
-        self.cursor = self.cursor.batch_size(size)
-        return self
+        return self._apply_cursor_method("batch_size", size)
 
     async def close(self) -> None:
         await self.cursor.close()
