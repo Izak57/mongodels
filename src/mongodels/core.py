@@ -1,7 +1,9 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 
 class Structure(BaseModel):
-    # field _id: Any
     pass
+
+
+MongoId = Field(alias="_id")
