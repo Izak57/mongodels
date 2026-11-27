@@ -192,6 +192,14 @@ class DBCursor(Generic[StructureT]):
         return doc
 
 
+    async def __aenter___(self) -> Self:
+        return self
+
+
+    async def __aexit__(self) -> None:
+        await self.close()
+
+
     async def to_list(
         self,
         length: int | None = None
@@ -209,6 +217,36 @@ class DBCursor(Generic[StructureT]):
 
     async def all(self) -> list[StructureT]:
         return await self.to_list()
+
+
+    async def first(self) -> StructureT | None:
+        doc = await self.cursor.next()
+        if doc is None:
+            return
+
+        if self.model:
+            return deserialize(doc, self.model, self.typestrict)
+        return doc
+
+
+    def limit(self, n: int) -> Self:
+        self.cursor = self.cursor.limit(n)
+        return self
+
+
+    def skip(self, n: int) -> Self:
+        self.cursor = self.cursor.skip(n)
+        return self
+
+
+    def sort(self, key, direction = None) -> Self:
+        self.cursor = self.cursor.sort(key, direction)
+        return self
+
+
+    def batch_size(self, size: int) -> Self:
+        self.cursor = self.cursor.batch_size(size)
+        return self
 
 
     async def close(self) -> None:
