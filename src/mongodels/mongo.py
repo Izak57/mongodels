@@ -11,16 +11,16 @@ from pymongo.results import (
 from pydantic import BaseModel
 
 from .core import Structure
-from .typin import StructureT
+from .typin import StructureT, AggreStructureT
 
 
 type Collection = str
 
 
 def deserialize(obj: Any,
-                collection: Collection[StructureT],
+                model: Type[StructureT],
                 typestrict: bool = True) -> StructureT:
-    return collection.model.model_validate(
+    return model.model_validate(
         obj, strict=typestrict
     )
 
@@ -96,7 +96,7 @@ class StructuredCollection(Generic[StructureT]):
                  *,
                  projection: dict[str, Any] | None = None) -> StructureT | None:
         doc = self.collection.find_one(filter, projection=projection)
-        return deserialize(doc, self, self.typestrict)
+        return deserialize(doc, self.model, self.typestrict)
 
 
     async def insert_many(self, objs: list[StructureT | dict[str, Any]]) -> InsertManyResult:
@@ -163,14 +163,21 @@ class StructuredCollection(Generic[StructureT]):
         return result
 
 
+    async def aggregate(self,
+                        pipeline: list[dict[str, Any]],
+                        resultmodel: Type[AggreStructureT] | None = None) -> DBCursor[AggreStructureT]:
+        cursor = await self.collection.aggregate(pipeline)
+        return DBCursor(cursor, resultmodel, True)
+
+
 class DBCursor(Generic[StructureT]):
 
     def __init__(self,
                  cursor: AsyncCursor,
-                 collection: StructuredCollection[StructureT],
+                 model: Type[StructureT],
                  typestrict: bool = True) -> None:
         self.cursor = cursor
-        self.collection = collection
+        self.model = model
         self.typestrict = typestrict
 
 
@@ -180,7 +187,9 @@ class DBCursor(Generic[StructureT]):
 
     async def __anext__(self) -> StructureT:
         doc = await self.cursor.__anext__()
-        return deserialize(doc, self.collection, self.typestrict)
+        if self.model:
+            return deserialize(doc, self.model, self.typestrict)
+        return doc
 
 
     async def to_list(
@@ -189,10 +198,13 @@ class DBCursor(Generic[StructureT]):
     ) -> list[StructureT]:
         docs = await self.cursor.to_list(length=length)
 
-        return [
-            deserialize(doc, self.collection, self.typestrict)
-            for doc in docs
-        ]
+        if self.model:
+            return [
+                deserialize(doc, self.model, self.typestrict)
+                for doc in docs
+            ]
+        else:
+            return docs
 
 
     async def all(self) -> list[StructureT]:
