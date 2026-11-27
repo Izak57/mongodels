@@ -4,7 +4,10 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.cursor import AsyncCursor
-from pymongo.results import InsertOneResult, InsertManyResult
+from pymongo.results import (
+    InsertOneResult, InsertManyResult,
+    UpdateResult, DeleteResult
+)
 from pydantic import BaseModel
 
 from .core import Structure
@@ -74,8 +77,8 @@ class StructuredCollection(Generic[StructureT]):
              filter: dict[str, Any],
              *,
              projection: dict[str, Any] | None = None,
-             skip: int | None = None,
-             limit: int | None = None) -> DBCursor[StructureT]:
+             skip: int = 0,
+             limit: int = -1) -> DBCursor[StructureT]:
         cursor = self.collection.find(
             filter=filter,
             projection=projection,
@@ -108,6 +111,57 @@ class StructuredCollection(Generic[StructureT]):
         return result
 
 
+    async def update_one(self,
+                         filters: dict[str, Any],
+                         update: dict[str, Any],
+                         *,
+                         upsert: bool = False) -> UpdateResult:
+        result = await self.collection.update_one(
+            filters, update,
+            upsert=upsert
+        )
+        return result
+
+
+    async def update_many(self,
+                          filters: dict[str, Any],
+                          update: dict[str, Any],
+                          *,
+                          upsert: bool = False) -> UpdateResult:
+        result = await self.collection.update_many(
+            filters, update,
+            upsert=upsert
+        )
+        return result
+
+
+    async def replace_one(self,
+                          filters: dict[str, Any],
+                          replacement: dict[str, Any],
+                          *,
+                          upsert: bool = False) -> UpdateResult:
+        result = await self.collection.replace_one(
+            filters, replacement,
+            upsert=upsert
+        )
+        return result
+
+
+    async def delete_one(self,
+                         filters: dict[str, Any]) -> DeleteResult:
+        result = await self.collection.delete_one(
+            filters
+        )
+        return result
+
+
+    async def delete_many(self,
+                          filters: dict[str, Any]) -> DeleteResult:
+        result = await self.collection.delete_many(
+            filters
+        )
+        return result
+
 
 class DBCursor(Generic[StructureT]):
 
@@ -129,8 +183,20 @@ class DBCursor(Generic[StructureT]):
         return deserialize(doc, self.collection, self.typestrict)
 
 
+    async def to_list(
+        self,
+        length: int | None = None
+    ) -> list[StructureT]:
+        docs = await self.cursor.to_list(length=length)
+
+        return [
+            deserialize(doc, self.collection, self.typestrict)
+            for doc in docs
+        ]
+
+
     async def all(self) -> list[StructureT]:
-        datas = await nex
+        return await self.to_list()
 
 
     async def close(self) -> None:
