@@ -87,7 +87,7 @@ class StructuredCollection(Generic[StructureT]):
         )
 
         return DBCursor(cursor,
-                        collection=self,
+                        model=self.model,
                         typestrict=self.typestrict)
 
 

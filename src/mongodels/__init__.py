@@ -1,4 +1,4 @@
-from .core import Structure, MongoId
+from .core import Structure
 from .mongo import (
     StructuredDatabase, StructuredCollection
 )
